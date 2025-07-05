@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "845064281911",
+    "project_id": "gymdada-b1ef0",
+    "storage_bucket": "gymdada-b1ef0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:845064281911:android:e23ed5f1fdf7863b3004b2",
+        "android_client_info": {
+          "package_name": "com.anouar.dada_gym"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCcH_KUYCT_p4wjAIkcoLxAPjmtBWRLlAE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
