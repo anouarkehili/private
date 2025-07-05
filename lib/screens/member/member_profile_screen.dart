@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_status_service.dart';
+import '../../services/theme_service.dart';
 import '../auth/login.dart';
-import 'package:intl/intl.dart' show DateFormat;
+import 'package:intl/intl.dart';
 
 class MemberProfileScreen extends StatefulWidget {
   final UserModel user;
@@ -16,24 +18,31 @@ class MemberProfileScreen extends StatefulWidget {
 
 class _MemberProfileScreenState extends State<MemberProfileScreen> {
   bool notificationsEnabled = true;
-  bool darkModeEnabled = true;
   final AuthService _authService = AuthService();
 
   @override
   Widget build(BuildContext context) {
     final daysRemaining = UserStatusService.daysRemaining(widget.user);
     final isExpired = UserStatusService.isSubscriptionExpired(widget.user);
+    final themeService = Provider.of<ThemeService>(context);
+    final isDark = themeService.isDarkMode;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF181A20),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('ملفي الشخصي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          'ملفي الشخصي',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit, color: Color(0xFF00FF57)),
+            icon: const Icon(Icons.edit),
+            color: Theme.of(context).colorScheme.primary,
             onPressed: () => _showEditProfileDialog(),
             tooltip: 'تعديل الملف',
           ),
@@ -47,13 +56,16 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
             children: [
               Container(
                 height: 180,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF00FF57), Color(0xFF00CC45)],
+                    colors: [
+                      Theme.of(context).colorScheme.primary,
+                      Theme.of(context).colorScheme.secondary,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.only(
+                  borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(40),
                     bottomRight: Radius.circular(40),
                   ),
@@ -71,21 +83,22 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
                         BoxShadow(
                           color: Colors.black.withAlpha((255 * 0.25).toInt()),
                           offset: const Offset(0, 8),
+                          blurRadius: 16,
                         ),
                       ],
                     ),
                     child: CircleAvatar(
                       radius: 60,
-                      backgroundColor: Colors.white,
+                      backgroundColor: Theme.of(context).colorScheme.surface,
                       child: CircleAvatar(
                         radius: 56,
-                        backgroundColor: const Color(0xFF181A20),
+                        backgroundColor: Theme.of(context).colorScheme.background,
                         child: Text(
                           widget.user.firstName[0] + widget.user.lastName[0],
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 40,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF00FF57),
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ),
@@ -101,9 +114,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
               children: [
                 Text(
                   widget.user.fullName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -113,22 +124,27 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
                   decoration: BoxDecoration(
                     color: widget.user.isActivated
-                        ? const Color(0xFF00FF57).withAlpha((0.15 * 255).toInt())
-                        : Colors.red.withAlpha((0.15 * 255).toInt()),
+                        ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                        : Colors.red.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         widget.user.isActivated ? Icons.verified : Icons.warning_amber_rounded,
-                        color: widget.user.isActivated ? const Color(0xFF00FF57) : Colors.red,
+                        color: widget.user.isActivated 
+                            ? Theme.of(context).colorScheme.primary 
+                            : Colors.red,
                         size: 18,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         widget.user.isActivated ? 'عضو نشط' : 'عضو غير نشط',
                         style: TextStyle(
-                          color: widget.user.isActivated ? const Color(0xFF00FF57) : Colors.red,
+                          color: widget.user.isActivated 
+                              ? Theme.of(context).colorScheme.primary 
+                              : Colors.red,
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
@@ -161,7 +177,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
           const SizedBox(height: 24),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _buildSettingsSection(),
+            child: _buildSettingsSection(themeService),
           ),
           const SizedBox(height: 24),
           Padding(
@@ -175,19 +191,31 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
   }
 
   Widget _buildInfoChip(IconData icon, String value) {
+    if (value.isEmpty) return const SizedBox.shrink();
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFF23242A),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+        ),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: const Color(0xFF00FF57), size: 18),
+          Icon(
+            icon, 
+            color: Theme.of(context).colorScheme.primary, 
+            size: 18,
+          ),
           const SizedBox(width: 6),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -200,14 +228,19 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
         gradient: LinearGradient(
           colors: isExpired
               ? [Colors.red.shade400, Colors.red.shade600]
-              : [const Color(0xFF00FF57), const Color(0xFF00CC45)],
+              : [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.secondary,
+                ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: isExpired ? Colors.red.withAlpha((0.18 * 255).toInt()) : const Color(0xFF00FF57).withAlpha((0.18 * 255).toInt()),
+            color: isExpired 
+                ? Colors.red.withAlpha((0.18 * 255).toInt()) 
+                : Theme.of(context).colorScheme.primary.withAlpha((0.18 * 255).toInt()),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -295,7 +328,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
   Widget _buildStatsSection() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF23242A),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -309,9 +342,11 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'إحصائياتي',
-            style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 18),
           Row(
@@ -330,7 +365,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF181A20),
+        color: Theme.of(context).colorScheme.background,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -353,12 +388,14 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
           const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             title,
-            style: const TextStyle(color: Colors.white70, fontSize: 15),
+            style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
         ],
@@ -366,20 +403,22 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
     );
   }
 
-  Widget _buildSettingsSection() {
+  Widget _buildSettingsSection(ThemeService themeService) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF23242A),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(22),
+          Padding(
+            padding: const EdgeInsets.all(22),
             child: Text(
               'الإعدادات',
-              style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           _buildSwitchTile(
@@ -392,8 +431,8 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
           _buildSwitchTile(
             'الوضع المظلم',
             'استخدام الوضع المظلم',
-            darkModeEnabled,
-            (value) => setState(() => darkModeEnabled = value),
+            themeService.isDarkMode,
+            (value) => themeService.toggleTheme(),
             Icons.dark_mode,
           ),
           _buildActionTile(
@@ -406,25 +445,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
             'سياسة الخصوصية',
             'اطلع على سياسة الخصوصية',
             Icons.privacy_tip,
-            () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: const Color(0xFF2C2C2E),
-                  title: const Text('سياسة الخصوصية', style: TextStyle(color: Colors.white)),
-                  content: const Text(
-                    'سيتم إضافة سياسة الخصوصية قريبًا.',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('إغلاق', style: TextStyle(color: Colors.white70)),
-                    ),
-                  ],
-                ),
-              );
-            },
+            () => _showPrivacyDialog(),
           ),
         ],
       ),
@@ -433,23 +454,43 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
 
   Widget _buildSwitchTile(String title, String subtitle, bool value, Function(bool) onChanged, IconData icon) {
     return ListTile(
-      leading: Icon(icon, color: const Color(0xFF00FF57)),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      subtitle: Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      title: Text(
+        title, 
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      subtitle: Text(
+        subtitle, 
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
       trailing: Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: const Color(0xFF00FF57),
+        activeColor: Theme.of(context).colorScheme.primary,
       ),
     );
   }
 
   Widget _buildActionTile(String title, String subtitle, IconData icon, VoidCallback onTap) {
     return ListTile(
-      leading: Icon(icon, color: const Color(0xFF00FF57)),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      subtitle: Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      title: Text(
+        title, 
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      subtitle: Text(
+        subtitle, 
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios, 
+        color: Theme.of(context).textTheme.bodySmall?.color, 
+        size: 16,
+      ),
       onTap: onTap,
     );
   }
@@ -457,7 +498,6 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
   Widget _buildActionButtons() {
     return Column(
       children: [
-
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
@@ -485,38 +525,35 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text('تعديل الملف الشخصي', style: TextStyle(color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'تعديل الملف الشخصي', 
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: firstNameController,
-              style: const TextStyle(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyLarge,
               decoration: const InputDecoration(
                 labelText: 'الاسم الأول',
-                labelStyle: TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: lastNameController,
-              style: const TextStyle(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyLarge,
               decoration: const InputDecoration(
                 labelText: 'الاسم العائلي',
-                labelStyle: TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: phoneController,
-              style: const TextStyle(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyLarge,
               decoration: const InputDecoration(
                 labelText: 'رقم الهاتف',
-                labelStyle: TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(),
               ),
             ),
           ],
@@ -524,7 +561,10 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.white70)),
+            child: Text(
+              'إلغاء', 
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -533,8 +573,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
                 const SnackBar(content: Text('تم حفظ التغييرات بنجاح')),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00FF57)),
-            child: const Text('حفظ', style: TextStyle(color: Colors.black)),
+            child: const Text('حفظ'),
           ),
         ],
       ),
@@ -545,23 +584,38 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text('تجديد الاشتراك', style: TextStyle(color: Colors.white)),
-        content: const Column(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'تجديد الاشتراك', 
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('اختر نوع الاشتراك:', style: TextStyle(color: Colors.white)),
-            SizedBox(height: 16),
+            Text(
+              'اختر نوع الاشتراك:', 
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 16),
             ListTile(
-              title: Text('اشتراك شهري - 3000 دج', style: TextStyle(color: Colors.white)),
+              title: Text(
+                'اشتراك شهري - 3000 دج', 
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
               leading: Radio(value: 1, groupValue: 1, onChanged: null),
             ),
             ListTile(
-              title: Text('اشتراك 3 أشهر - 8000 دج', style: TextStyle(color: Colors.white)),
+              title: Text(
+                'اشتراك 3 أشهر - 8000 دج', 
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
               leading: Radio(value: 2, groupValue: 1, onChanged: null),
             ),
             ListTile(
-              title: Text('اشتراك سنوي - 30000 دج', style: TextStyle(color: Colors.white)),
+              title: Text(
+                'اشتراك سنوي - 30000 دج', 
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
               leading: Radio(value: 3, groupValue: 1, onChanged: null),
             ),
           ],
@@ -569,7 +623,10 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.white70)),
+            child: Text(
+              'إلغاء', 
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -578,102 +635,46 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
                 const SnackBar(content: Text('تم إرسال طلب التجديد بنجاح')),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00FF57)),
-            child: const Text('تجديد', style: TextStyle(color: Colors.black)),
+            child: const Text('تجديد'),
           ),
         ],
       ),
     );
   }
 
-  // تم حذف نافذة عرض QR من صفحة الملف الشخصي بناءً على طلبك
-  // إذا رغبت في استعادتها مستقبلاً يمكنك إعادة الكود هنا
-  // void _showQRCode() {
-  //   showDialog(
-  //     context: context,
-  //     builder: (context) => AlertDialog(
-  //       backgroundColor: const Color(0xFF2C2C2E),
-  //       title: const Text('QR الخاص بك', style: TextStyle(color: Colors.white)),
-  //       content: Column(
-  //         mainAxisSize: MainAxisSize.min,
-  //         children: [
-  //           if ((widget.user.qrCodeData ?? '').isNotEmpty)
-  //             Container(
-  //               width: 200,
-  //               height: 200,
-  //               decoration: BoxDecoration(
-  //                 color: Colors.white,
-  //                 borderRadius: BorderRadius.circular(12),
-  //               ),
-  //               child: Center(
-  //                 child: QrImageView(
-  //                   data: widget.user.qrCodeData!,
-  //                   version: QrVersions.auto,
-  //                   size: 180.0,
-  //                   backgroundColor: Colors.white,
-  //                 ),
-  //               ),
-  //             )
-  //           else
-  //             const Text(
-  //               'لا يوجد QR Code متاح حالياً.',
-  //               style: TextStyle(color: Colors.white),
-  //             ),
-  //           const SizedBox(height: 16),
-  //           const Text(
-  //             'اعرض هذا الرمز للموظف عند الدخول',
-  //             style: TextStyle(color: Colors.white70),
-  //             textAlign: TextAlign.center,
-  //           ),
-  //         ],
-  //       ),
-  //       actions: [
-  //         ElevatedButton(
-  //           onPressed: () => Navigator.pop(context),
-  //           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00FF57)),
-  //           child: const Text('إغلاق', style: TextStyle(color: Colors.black)),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   void _showChangePasswordDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text('تغيير كلمة المرور', style: TextStyle(color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'تغيير كلمة المرور', 
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               obscureText: true,
-              style: const TextStyle(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyLarge,
               decoration: const InputDecoration(
                 labelText: 'كلمة المرور الحالية',
-                labelStyle: TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               obscureText: true,
-              style: const TextStyle(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyLarge,
               decoration: const InputDecoration(
                 labelText: 'كلمة المرور الجديدة',
-                labelStyle: TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               obscureText: true,
-              style: const TextStyle(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyLarge,
               decoration: const InputDecoration(
                 labelText: 'تأكيد كلمة المرور الجديدة',
-                labelStyle: TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(),
               ),
             ),
           ],
@@ -681,7 +682,10 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.white70)),
+            child: Text(
+              'إلغاء', 
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -690,8 +694,51 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
                 const SnackBar(content: Text('تم تغيير كلمة المرور بنجاح')),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00FF57)),
-            child: const Text('حفظ', style: TextStyle(color: Colors.black)),
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivacyDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'سياسة الخصوصية', 
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        content: SingleChildScrollView(
+          child: Text(
+            '''
+نحن في DADA GYM نحترم خصوصيتك ونلتزم بحماية بياناتك الشخصية.
+
+البيانات التي نجمعها:
+• الاسم والبريد الإلكتروني
+• رقم الهاتف (اختياري)
+• بيانات الحضور والاشتراك
+
+كيف نستخدم بياناتك:
+• إدارة عضويتك في الصالة
+• تتبع حضورك وتقدمك
+• التواصل معك بخصوص الخدمات
+
+حماية البيانات:
+• نستخدم تشفير متقدم لحماية بياناتك
+• لا نشارك بياناتك مع أطراف ثالثة
+• يمكنك طلب حذف بياناتك في أي وقت
+
+للاستفسارات حول سياسة الخصوصية، يرجى التواصل معنا.
+            ''',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('فهمت'),
           ),
         ],
       ),
@@ -702,16 +749,22 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text('تسجيل الخروج', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'تسجيل الخروج', 
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        content: Text(
           'هل أنت متأكد أنك تريد تسجيل الخروج؟',
-          style: TextStyle(color: Colors.white70),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.white70)),
+            child: Text(
+              'إلغاء', 
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),

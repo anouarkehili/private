@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:provider/provider.dart';
 import '../../models/user_model.dart';
+import '../../services/theme_service.dart';
 import '../member/member_profile_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -20,16 +22,19 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text('الحساب غير مفعل', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'الحساب غير مفعل', 
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        content: Text(
           'حسابك قيد المراجعة. يرجى التواصل مع الإدارة لتفعيله والوصول إلى جميع الميزات.',
-          style: TextStyle(color: Colors.white70),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('موافق', style: TextStyle(color: Color(0xFF00FF57))),
+            child: const Text('موافق'),
           ),
         ],
       ),
@@ -42,11 +47,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final isActivated = widget.user.isActivated;
     final allowedIndices = {2}; // Profile page index
+    final themeService = Provider.of<ThemeService>(context);
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: PageView(
           controller: _pageController,
           onPageChanged: (index) {
@@ -67,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF232325),
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(24),
               topRight: Radius.circular(24),
@@ -142,10 +148,16 @@ class _HomeScreenState extends State<HomeScreen> {
           duration: const Duration(milliseconds: 250),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF00FF57).withOpacity(0.18) : Colors.transparent,
+            color: isSelected 
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.18) 
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
             boxShadow: isSelected
-                ? [BoxShadow(color: const Color(0xFF00FF57).withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))]
+                ? [BoxShadow(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08), 
+                    blurRadius: 8, 
+                    offset: const Offset(0, 2),
+                  )]
                 : [],
           ),
           child: Column(
@@ -153,14 +165,18 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Icon(
                 icon,
-                color: isSelected ? const Color(0xFF00FF57) : Colors.white60,
+                color: isSelected 
+                    ? Theme.of(context).colorScheme.primary 
+                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 size: isSelected ? 30 : 24,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? const Color(0xFF00FF57) : Colors.white60,
+                  color: isSelected 
+                      ? Theme.of(context).colorScheme.primary 
+                      : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   fontSize: 14,
                 ),
@@ -179,9 +195,11 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 40),
         _buildSubscriptionCard(widget.user),
         const SizedBox(height: 20),
-        const Text(
+        Text(
           'القائمة الرئيسية',
-          style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 10),
         _buildFeatureGrid(context),
@@ -198,7 +216,10 @@ class _HomeScreenState extends State<HomeScreen> {
         gradient: LinearGradient(
           colors: isExpired
               ? [Colors.red.shade400, Colors.red.shade700]
-              : [Colors.tealAccent.shade400, Colors.teal.shade700],
+              : [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.secondary,
+                ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -246,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.verified_user,
                           color: Colors.white70,
                           size: 18,
@@ -344,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (!isActivated) {
             _showActivationNeededDialog();
           } else {
-            _pageController.animateToPage(1, duration: const Duration(milliseconds: 300), curve: Curves.ease);
+            _showExerciseLibrary();
           }
         },
       },
@@ -366,6 +387,12 @@ class _HomeScreenState extends State<HomeScreen> {
         'color': Colors.pink,
         'onTap': () => _showAboutDialog(),
       },
+      {
+        'title': 'الإعدادات',
+        'icon': Icons.settings,
+        'color': Colors.grey,
+        'onTap': () => _showSettingsDialog(),
+      },
     ];
 
     return GridView.builder(
@@ -384,10 +411,10 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: feature['onTap'] as VoidCallback,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF2C2C2E),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: (feature['color'] as Color).withOpacity(0.3),
+                color: (feature['color'] as Color).withOpacity(0.3), 
                 width: 1,
               ),
             ),
@@ -409,7 +436,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 10),
                 Text(
                   feature['title'] as String,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -420,10 +449,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showSupportDialog() {
+  void _showExerciseLibrary() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF2C2C2E),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -432,34 +461,153 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
+              'مكتبة التمارين',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'ستتوفر مكتبة شاملة للتمارين قريباً مع فيديوهات توضيحية وبرامج تدريبية مخصصة.',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('حسناً'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSettingsDialog() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'الإعدادات',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Icon(
+                themeService.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: Text(
+                themeService.isDarkMode ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع المظلم',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              onTap: () {
+                themeService.toggleTheme();
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.language,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: Text(
+                'اللغة',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              subtitle: Text(
+                'العربية',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('ستتوفر لغات إضافية قريباً')),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSupportDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
               'تابعنا على مواقع التواصل الاجتماعي',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 IconButton(
-                  icon: const Icon(FontAwesomeIcons.facebook, color: Color(0xFF00FF57), size: 32),
+                  icon: FaIcon(
+                    FontAwesomeIcons.facebook, 
+                    color: Theme.of(context).colorScheme.primary, 
+                    size: 32,
+                  ),
                   onPressed: () {
                     launchUrl(Uri.parse('https://facebook.com/yourpage'));
                   },
                 ),
                 IconButton(
-                  icon: const Icon(FontAwesomeIcons.tiktok, color: Color(0xFF00FF57), size: 32),
+                  icon: FaIcon(
+                    FontAwesomeIcons.tiktok, 
+                    color: Theme.of(context).colorScheme.primary, 
+                    size: 32,
+                  ),
                   onPressed: () {
                     launchUrl(Uri.parse('https://tiktok.com/@yourusername'));
                   },
                 ),
                 IconButton(
-                  icon: const Icon(FontAwesomeIcons.instagram, color: Color(0xFF00FF57), size: 32),
+                  icon: FaIcon(
+                    FontAwesomeIcons.instagram, 
+                    color: Theme.of(context).colorScheme.primary, 
+                    size: 32,
+                  ),
                   onPressed: () {
                     launchUrl(Uri.parse('https://instagram.com/yourusername'));
                   },
                 ),
                 IconButton(
-                  icon: const Icon(FontAwesomeIcons.whatsapp, color: Color(0xFF00FF57), size: 32),
+                  icon: FaIcon(
+                    FontAwesomeIcons.whatsapp, 
+                    color: Theme.of(context).colorScheme.primary, 
+                    size: 32,
+                  ),
                   onPressed: () {
                     launchUrl(Uri.parse('https://wa.me/213699446868'));
                   },
@@ -472,14 +620,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close),
                 label: const Text('إغلاق'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00FF57),
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
               ),
             ),
           ],
@@ -491,7 +631,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showAboutDialog() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: Theme.of(context).colorScheme.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -506,35 +646,32 @@ class _HomeScreenState extends State<HomeScreen> {
               Center(
                 child: Column(
                   children: [
-                    const Icon(Icons.fitness_center, color: Colors.tealAccent, size: 42),
+                    Icon(
+                      Icons.fitness_center, 
+                      color: Theme.of(context).colorScheme.primary, 
+                      size: 42,
+                    ),
                     const SizedBox(height: 10),
-                    const Text(
+                    Text(
                       'تطبيق DADA GYM',
-                      style: TextStyle(
-                        fontSize: 22,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'الإصدار 1.0.0',
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
-                        fontSize: 13,
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 28),
 
-              const Text(
+              Text(
                 'عن التطبيق:',
-                style: TextStyle(
-                  fontSize: 17,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 12),
@@ -544,29 +681,26 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildInfoRow(Icons.support_agent, 'دعم فني مباشر'),
 
               const SizedBox(height: 28),
-              const Text(
+              Text(
                 'مطور التطبيق:',
-                style: TextStyle(
-                  fontSize: 16,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 6),
-              const Row(
+              Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: Colors.white24,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
                     radius: 16,
-                    child: Icon(Icons.person, color: Colors.white),
+                    child: const Icon(Icons.person),
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Text(
                     'Anouar Kehili',
-                    style: TextStyle(
-                      color: Colors.tealAccent,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w600,
-                      fontSize: 15,
                     ),
                   ),
                 ],
@@ -596,14 +730,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
                   label: const Text('إغلاق'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey.shade800,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -618,12 +744,16 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.tealAccent),
+          Icon(
+            icon, 
+            size: 18, 
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: Colors.white70, fontSize: 15),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
         ],

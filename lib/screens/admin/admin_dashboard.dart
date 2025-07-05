@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/user_model.dart';
 import '../../services/user_service.dart';
 import '../../services/attendance_service.dart';
+import '../../services/theme_service.dart';
 import 'subscribers_list_screen.dart';
 import 'attendance_screen.dart';
 import 'statistics_screen.dart';
@@ -50,23 +52,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'لوحة تحكم الإدارة',
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(
                 'مرحباً ${widget.admin.firstName}',
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                ),
               ),
             ],
           ),
@@ -78,12 +86,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00FF57).withOpacity(0.2),
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       widget.admin.roleDisplayName,
-                      style: const TextStyle(
-                        color: Color(0xFF00FF57),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -91,7 +100,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.refresh, color: Color(0xFF00FF57)),
+                    icon: Icon(
+                      Icons.refresh, 
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                     onPressed: _loadStats,
                   ),
                 ],
@@ -101,19 +113,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
         body: RefreshIndicator(
           onRefresh: _loadStats,
+          color: Theme.of(context).colorScheme.primary,
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               _buildWelcomeCard(),
               const SizedBox(height: 20),
               if (isLoading)
-                const Center(child: CircularProgressIndicator(color: Color(0xFF00FF57)))
+                Center(
+                  child: CircularProgressIndicator(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                )
               else
                 _buildQuickStats(),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'الإدارة والتحكم',
-                style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 10),
               _buildAdminGrid(context),
@@ -121,9 +140,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ),
         bottomNavigationBar: BottomNavigationBar(
-          backgroundColor: const Color(0xFF2C2C2E),
-          selectedItemColor: const Color(0xFF00FF57),
-          unselectedItemColor: Colors.white60,
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          selectedItemColor: Theme.of(context).colorScheme.primary,
+          unselectedItemColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
           currentIndex: 0,
           type: BottomNavigationBarType.fixed,
           items: const [
@@ -157,8 +176,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildWelcomeCard() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF00FF57), Color(0xFF00CC45)],
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.secondary,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -174,6 +196,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.admin_panel_settings, size: 30, color: Colors.black),
               ),
@@ -245,7 +268,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF181A20),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -268,12 +291,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             title,
-            style: const TextStyle(color: Colors.white70, fontSize: 15),
+            style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
         ],
@@ -331,9 +356,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
           onTap: feature['onTap'] as VoidCallback,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF2C2C2E),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: (feature['color'] as Color).withOpacity(0.3), width: 1),
+              border: Border.all(
+                color: (feature['color'] as Color).withOpacity(0.3), 
+                width: 1,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: (feature['color'] as Color).withOpacity(0.10),
@@ -360,7 +388,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(height: 12),
                 Text(
                   feature['title'] as String,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
