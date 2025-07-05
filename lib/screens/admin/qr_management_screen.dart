@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../services/qr_service.dart';
+import '../../services/theme_service.dart';
 
 class QRManagementScreen extends StatefulWidget {
   const QRManagementScreen({super.key});
@@ -13,24 +16,64 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
   final QRService _qrService = QRService();
   String? currentQRCode;
   bool isGenerating = false;
+  Map<String, int> qrStats = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadQRStats();
+  }
+
+  Future<void> _loadQRStats() async {
+    try {
+      final stats = await _qrService.getQRStats();
+      setState(() {
+        qrStats = stats;
+      });
+    } catch (e) {
+      // Handle error silently
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title: const Text('إدارة QR للحضور', style: TextStyle(color: Colors.white)),
-          iconTheme: const IconThemeData(color: Colors.white),
+          title: Text(
+            'إدارة QR للحضور', 
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                Icons.refresh,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              onPressed: () {
+                _loadQRStats();
+                setState(() {});
+              },
+              tooltip: 'تحديث',
+            ),
+          ],
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        body: RefreshIndicator(
+          onRefresh: _loadQRStats,
+          color: Theme.of(context).colorScheme.primary,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
             children: [
+              _buildStatsCards(),
+              const SizedBox(height: 20),
               _buildQRGenerationCard(),
               const SizedBox(height: 20),
               if (currentQRCode != null) _buildQRDisplayCard(),
@@ -43,33 +86,139 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
     );
   }
 
+  Widget _buildStatsCards() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'إحصائيات QR Codes',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  'QR نشطة للحضور',
+                  qrStats['activeAttendance']?.toString() ?? '0',
+                  Icons.qr_code,
+                  Colors.green,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatItem(
+                  'QR شخصية نشطة',
+                  qrStats['activeUserQRs']?.toString() ?? '0',
+                  Icons.person,
+                  Colors.blue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  'استخدامات اليوم',
+                  qrStats['todayUsage']?.toString() ?? '0',
+                  Icons.today,
+                  Colors.orange,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatItem(
+                  'QR منتهية',
+                  qrStats['expiredAttendance']?.toString() ?? '0',
+                  Icons.expired,
+                  Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQRGenerationCard() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.qr_code_2,
             size: 60,
-            color: Color(0xFF00FF57),
+            color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'إنشاء QR Code للحضور',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'يمكن للمشتركين مسح هذا الكود لتسجيل حضورهم',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
@@ -91,13 +240,6 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
                 isGenerating ? 'جاري الإنشاء...' : 'إنشاء QR Code جديد',
                 style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00FF57),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ),
         ],
@@ -108,17 +250,22 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
   Widget _buildQRDisplayCard() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const Text(
+          Text(
             'QR Code الحالي',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -129,18 +276,37 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Center(
-              child: _buildQRCodeWidget(currentQRCode!),
+              child: SizedBox(
+                width: 180,
+                height: 180,
+                child: QrImageView(
+                  data: _qrService.encodeAttendanceQRData(currentQRCode!),
+                  backgroundColor: Colors.white,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            'الكود: $currentQRCode',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontFamily: 'monospace',
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.background,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'الكود: $currentQRCode',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -149,35 +315,24 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => _copyQRCode(currentQRCode!),
-                  icon: const Icon(Icons.copy, color: Color(0xFF00FF57)),
-                  label: const Text(
-                    'نسخ الكود',
-                    style: TextStyle(color: Color(0xFF00FF57)),
+                  icon: Icon(
+                    Icons.copy, 
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF00FF57)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                  label: Text(
+                    'نسخ الكود',
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _saveQRAsImage(currentQRCode!),
-                  icon: const Icon(Icons.download, color: Colors.black),
+                  onPressed: () => _shareQRCode(currentQRCode!),
+                  icon: const Icon(Icons.share, color: Colors.black),
                   label: const Text(
-                    'حفظ كصورة',
+                    'مشاركة',
                     style: TextStyle(color: Colors.black),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00FF57),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
                   ),
                 ),
               ),
@@ -189,57 +344,83 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
   }
 
   Widget _buildActiveQRsList() {
-    return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF2C2C2E),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'QR Codes النشطة',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.list_alt,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-              ),
+                const SizedBox(width: 8),
+                Text(
+                  'QR Codes النشطة',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _qrService.getActiveQRCodes(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF00FF57)),
-                    );
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'لا توجد QR Codes نشطة',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: snapshot.data!.length,
-                    itemBuilder: (context, index) {
-                      final qrData = snapshot.data![index];
-                      return _buildQRListItem(qrData);
-                    },
+          ),
+          SizedBox(
+            height: 300,
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _qrService.getActiveAttendanceQRCodes(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   );
-                },
-              ),
+                }
+
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.qr_code_off,
+                          size: 64,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'لا توجد QR Codes نشطة',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: snapshot.data!.length,
+                  itemBuilder: (context, index) {
+                    final qrData = snapshot.data![index];
+                    return _buildQRListItem(qrData);
+                  },
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -248,66 +429,91 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
     final createdAt = qrData['createdAt']?.toDate() ?? DateTime.now();
     final expiresAt = qrData['expiresAt']?.toDate() ?? DateTime.now();
     final usageCount = qrData['usageCount'] ?? 0;
+    final maxUsage = qrData['maxUsage'] ?? 1000;
+    final isExpiringSoon = expiresAt.difference(DateTime.now()).inHours < 2;
 
     return Card(
-      color: const Color(0xFF1C1C1E),
+      color: Theme.of(context).colorScheme.background,
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: const Icon(Icons.qr_code, color: Color(0xFF00FF57)),
+        leading: Icon(
+          Icons.qr_code, 
+          color: isExpiringSoon ? Colors.orange : Theme.of(context).colorScheme.primary,
+        ),
         title: Text(
           qrData['code'],
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontFamily: 'monospace',
+          ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'تم الإنشاء: ${_formatDateTime(createdAt)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(
               'ينتهي: ${_formatDateTime(expiresAt)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: TextStyle(
+                color: isExpiringSoon ? Colors.orange : Theme.of(context).textTheme.bodySmall?.color,
+                fontSize: 12,
+              ),
             ),
             Text(
-              'مرات الاستخدام: $usageCount',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              'الاستخدامات: $usageCount / $maxUsage',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete, color: Colors.red),
-          onPressed: () => _deactivateQRCode(qrData['code']),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQRCodeWidget(String data) {
-    // هنا يمكنك استخدام مكتبة qr_flutter لإنشاء QR Code حقيقي
-    // للآن سنعرض placeholder
-    return Container(
-      width: 180,
-      height: 180,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black, width: 2),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.qr_code, size: 80, color: Colors.black),
-          const SizedBox(height: 8),
-          Text(
-            data,
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) {
+            switch (value) {
+              case 'copy':
+                _copyQRCode(qrData['code']);
+                break;
+              case 'deactivate':
+                _deactivateQRCode(qrData['code']);
+                break;
+              case 'renew':
+                _renewQRCode(qrData['code']);
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'copy',
+              child: Row(
+                children: [
+                  Icon(Icons.copy),
+                  SizedBox(width: 8),
+                  Text('نسخ'),
+                ],
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const PopupMenuItem(
+              value: 'renew',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh),
+                  SizedBox(width: 8),
+                  Text('تجديد'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'deactivate',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('إلغاء تفعيل', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -323,13 +529,17 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
         currentQRCode = qrCode;
       });
       
+      await _loadQRStats();
+      
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم إنشاء QR Code بنجاح'),
-          backgroundColor: Color(0xFF00FF57),
+        SnackBar(
+          content: const Text('تم إنشاء QR Code بنجاح'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('خطأ في إنشاء QR Code: $e'),
@@ -346,46 +556,98 @@ class _QRManagementScreenState extends State<QRManagementScreen> {
   void _copyQRCode(String qrCode) {
     Clipboard.setData(ClipboardData(text: qrCode));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم نسخ الكود'),
-        backgroundColor: Color(0xFF00FF57),
+      SnackBar(
+        content: const Text('تم نسخ الكود'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
     );
   }
 
-  Future<void> _saveQRAsImage(String qrCode) async {
-    try {
-      // هنا يمكنك تنفيذ حفظ QR Code كصورة
-      // للآن سنعرض رسالة نجاح
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم حفظ QR Code كصورة'),
-          backgroundColor: Color(0xFF00FF57),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطأ في حفظ الصورة: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+  void _shareQRCode(String qrCode) {
+    // يمكن إضافة مكتبة المشاركة هنا
+    _copyQRCode(qrCode);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('تم نسخ الكود للمشاركة'),
+      ),
+    );
   }
 
   Future<void> _deactivateQRCode(String qrCode) async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'تأكيد إلغاء التفعيل',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        content: Text(
+          'هل أنت متأكد من إلغاء تفعيل هذا QR Code؟',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'إلغاء',
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('إلغاء التفعيل', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _qrService.deactivateAttendanceQR(qrCode);
+        await _loadQRStats();
+        
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('تم إلغاء تفعيل QR Code'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في إلغاء التفعيل: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _renewQRCode(String oldQrCode) async {
     try {
-      await _qrService.deactivateQRCode(qrCode);
+      String newQrCode = await _qrService.renewAttendanceQR(oldQrCode);
+      setState(() {
+        currentQRCode = newQrCode;
+      });
+      
+      await _loadQRStats();
+      
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم إلغاء تفعيل QR Code'),
-          backgroundColor: Color(0xFF00FF57),
+        SnackBar(
+          content: const Text('تم تجديد QR Code بنجاح'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('خطأ في إلغاء التفعيل: $e'),
+          content: Text('خطأ في تجديد QR Code: $e'),
           backgroundColor: Colors.red,
         ),
       );

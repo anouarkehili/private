@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:provider/provider.dart';
 import '../../services/qr_service.dart';
 import '../../services/attendance_service.dart';
+import '../../services/theme_service.dart';
 import '../../models/user_model.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-// شاشة مسح QR
 class QRScannerScreen extends StatefulWidget {
   final UserModel user;
   
@@ -19,25 +21,66 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   final QRService _qrService = QRService();
   final AttendanceService _attendanceService = AttendanceService();
   final TextEditingController _qrController = TextEditingController();
+  final MobileScannerController _scannerController = MobileScannerController();
+  
   bool isProcessing = false;
+  bool isScanning = false;
+  String? userQRCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserQRCode();
+  }
 
   @override
   void dispose() {
     _qrController.dispose();
+    _scannerController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserQRCode() async {
+    try {
+      String qrCode = await _qrService.ensureUserQRCode(
+        widget.user.uid, 
+        widget.user.fullName,
+      );
+      setState(() {
+        userQRCode = qrCode;
+      });
+    } catch (e) {
+      // Handle error silently
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title: const Text('تسجيل الحضور', style: TextStyle(color: Colors.white)),
-          iconTheme: const IconThemeData(color: Colors.white),
+          title: Text(
+            'تسجيل الحضور', 
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                Icons.qr_code,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              onPressed: _showMyQrDialog,
+              tooltip: 'QR الخاص بي',
+            ),
+          ],
         ),
         body: Padding(
           padding: const EdgeInsets.all(16),
@@ -46,46 +89,20 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               children: [
                 _buildUserCard(),
                 const SizedBox(height: 20),
-                _buildQRScannerCard(),
+                if (isScanning) 
+                  _buildQRScannerView()
+                else
+                  _buildQRScannerCard(),
                 const SizedBox(height: 20),
-                _buildManualInputCard(),
+                if (!isScanning) _buildManualInputCard(),
                 const SizedBox(height: 20),
-                _buildShowMyQrButton(),
+                if (!isScanning) _buildShowMyQrButton(),
                 const SizedBox(height: 20),
-                _buildViewHistoryButton(),
+                if (!isScanning) _buildViewHistoryButton(),
                 const SizedBox(height: 40),
-                _buildAttendanceStatus(),
+                if (!isScanning) _buildAttendanceStatus(),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-
-  Widget _buildViewHistoryButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AttendanceScreen(user: widget.user),
-            ),
-          );
-        },
-        icon: const Icon(Icons.history, color: Color(0xFF00FF57)),
-        label: const Text(
-          'عرض سجل الحضور',
-          style: TextStyle(color: Color(0xFF00FF57), fontWeight: FontWeight.bold),
-        ),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0xFF00FF57)),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -95,14 +112,21 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   Widget _buildUserCard() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: const Color(0xFF00FF57),
+            backgroundColor: Theme.of(context).colorScheme.primary,
             radius: 30,
             child: Text(
               widget.user.firstName[0],
@@ -120,15 +144,13 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               children: [
                 Text(
                   widget.user.fullName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   widget.user.email,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 Container(
                   margin: const EdgeInsets.only(top: 4),
@@ -159,30 +181,35 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   Widget _buildQRScannerCard() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.qr_code_scanner,
             size: 80,
-            color: Color(0xFF00FF57),
+            color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'مسح QR Code',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'امسح QR Code المعروض من الإدارة لتسجيل حضورك',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
@@ -195,13 +222,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 'فتح الكاميرا',
                 style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00FF57),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ),
         ],
@@ -209,38 +229,124 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     );
   }
 
+  Widget _buildQRScannerView() {
+    return Container(
+      height: 400,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: Stack(
+          children: [
+            MobileScanner(
+              controller: _scannerController,
+              onDetect: _onQRDetected,
+            ),
+            // إطار المسح
+            Center(
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary, 
+                    width: 3,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            // زر الإغلاق
+            Positioned(
+              top: 16,
+              right: 16,
+              child: CircleAvatar(
+                backgroundColor: Colors.black54,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () {
+                    setState(() {
+                      isScanning = false;
+                    });
+                  },
+                ),
+              ),
+            ),
+            // نص توضيحي
+            Positioned(
+              bottom: 30,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'وجّه الكاميرا نحو QR Code الخاص بالحضور',
+                    style: TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+            // مؤشر المعالجة
+            if (isProcessing)
+              Container(
+                color: Colors.black54,
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF00FF57),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildManualInputCard() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'إدخال الكود يدوياً',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'يمكنك إدخال كود QR يدوياً إذا لم تتمكن من مسحه',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _qrController,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'أدخل كود QR هنا...',
-              hintStyle: TextStyle(color: Colors.white54),
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.qr_code, color: Color(0xFF00FF57)),
+              prefixIcon: Icon(
+                Icons.qr_code, 
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -249,16 +355,13 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _pasteFromClipboard,
-                  icon: const Icon(Icons.paste, color: Color(0xFF00FF57)),
-                  label: const Text(
-                    'لصق',
-                    style: TextStyle(color: Color(0xFF00FF57)),
+                  icon: Icon(
+                    Icons.paste, 
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF00FF57)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                  label: Text(
+                    'لصق',
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
               ),
@@ -280,12 +383,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                     isProcessing ? 'جاري المعالجة...' : 'تسجيل الحضور',
                     style: const TextStyle(color: Colors.black),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00FF57),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -297,78 +394,47 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   Widget _buildShowMyQrButton() {
     final isActivated = widget.user.isActivated;
-    final isExpired = !(widget.user.subscriptionEnd != null && widget.user.subscriptionEnd!.isAfter(DateTime.now()));
+    final isExpired = !widget.user.isSubscriptionActive;
+    
     return Visibility(
       visible: isActivated && !isExpired,
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
-          onPressed: () {
-            _showMyQrDialog();
-          },
+          onPressed: _showMyQrDialog,
           icon: const Icon(Icons.qr_code, color: Colors.black),
-          label: const Text('عرض QR الخاص بي', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF00FF57),
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            elevation: 2,
+          label: const Text(
+            'عرض QR الخاص بي', 
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
           ),
         ),
       ),
     );
   }
 
-  void _showMyQrDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text('QR الخاص بك', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if ((widget.user.qrCodeData ?? '').isNotEmpty)
-              Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: SizedBox(
-                    width: 180,
-                    height: 180,
-                    child: QrImageView(
-                      data: widget.user.qrCodeData!,
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              )
-            else
-              const Text(
-                'لا يوجد QR Code متاح حالياً.',
-                style: TextStyle(color: Colors.white),
-              ),
-            const SizedBox(height: 16),
-            const Text(
-              'اعرض هذا الرمز للموظف عند الدخول',
-              style: TextStyle(color: Colors.white70),
-              textAlign: TextAlign.center,
+  Widget _buildViewHistoryButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AttendanceHistoryScreen(user: widget.user),
             ),
-          ],
+          );
+        },
+        icon: Icon(
+          Icons.history, 
+          color: Theme.of(context).colorScheme.primary,
         ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00FF57)),
-            child: const Text('إغلاق', style: TextStyle(color: Colors.black)),
+        label: Text(
+          'عرض سجل الحضور',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary, 
+            fontWeight: FontWeight.bold,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -378,7 +444,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       future: _attendanceService.hasAttendedToday(widget.user.uid),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator(color: Color(0xFF00FF57));
+          return CircularProgressIndicator(
+            color: Theme.of(context).colorScheme.primary,
+          );
         }
 
         bool hasAttended = snapshot.data ?? false;
@@ -423,39 +491,18 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   }
 
   void _openQRScanner() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text('مسح QR Code', style: TextStyle(color: Colors.white)),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.camera_alt, size: 60, color: Color(0xFF00FF57)),
-            SizedBox(height: 16),
-            Text(
-              'وجه الكاميرا نحو QR Code',
-              style: TextStyle(color: Colors.white70),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إغلاق', style: TextStyle(color: Colors.white70)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _processQRCode('GYM_TEST123_2025');
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00FF57)),
-            child: const Text('محاكاة مسح ناجح', style: TextStyle(color: Colors.black)),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      isScanning = true;
+    });
+  }
+
+  void _onQRDetected(BarcodeCapture capture) {
+    if (isProcessing) return;
+
+    final String? qrCode = capture.barcodes.first.rawValue;
+    if (qrCode == null) return;
+
+    _processQRCode(qrCode);
   }
 
   Future<void> _pasteFromClipboard() async {
@@ -505,13 +552,15 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     });
 
     try {
-      bool isValid = await _qrService.validateQRCode(qrCode);
+      // التحقق من QR Code
+      Map<String, dynamic>? qrData = await _qrService.verifyQRCode(qrCode);
       
-      if (!isValid) {
+      if (qrData == null) {
         _showErrorDialog('QR Code غير صحيح أو منتهي الصلاحية');
         return;
       }
 
+      // التحقق من الحضور المسبق
       bool hasAttended = await _attendanceService.hasAttendedToday(widget.user.uid);
       
       if (hasAttended) {
@@ -519,8 +568,16 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         return;
       }
 
+      // تسجيل الحضور
       await _attendanceService.recordAttendance(widget.user);
-      await _qrService.recordQRUsage(qrCode);
+      
+      // تسجيل استخدام QR Code
+      String type = qrData['type'] ?? '';
+      if (type == 'gym_attendance') {
+        await _qrService.recordAttendanceQRUsage(qrData['code']);
+      } else if (type == 'gym_user') {
+        await _qrService.recordUserQRUsage(widget.user.uid);
+      }
 
       _showSuccessDialog();
       _qrController.clear();
@@ -530,17 +587,75 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     } finally {
       setState(() {
         isProcessing = false;
+        isScanning = false;
       });
     }
+  }
+
+  void _showMyQrDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'QR الخاص بك', 
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (userQRCode != null)
+              Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: SizedBox(
+                    width: 180,
+                    height: 180,
+                    child: QrImageView(
+                      data: _qrService.encodeUserQRData(userQRCode!, widget.user.uid),
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              )
+            else
+              const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'اعرض هذا الرمز للموظف عند الدخول',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text('خطأ', style: TextStyle(color: Colors.white)),
-        content: Text(message, style: const TextStyle(color: Colors.white70)),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'خطأ', 
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        content: Text(
+          message, 
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
@@ -556,16 +671,23 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text('تم بنجاح', style: TextStyle(color: Colors.white)),
-        content: const Column(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'تم بنجاح', 
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, size: 60, color: Color(0xFF00FF57)),
-            SizedBox(height: 16),
+            Icon(
+              Icons.check_circle, 
+              size: 60, 
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 16),
             Text(
               'تم تسجيل حضورك بنجاح!',
-              style: TextStyle(color: Colors.white, fontSize: 16),
+              style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
           ],
@@ -574,10 +696,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pop(context); // العودة للشاشة الرئيسية
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00FF57)),
-            child: const Text('موافق', style: TextStyle(color: Colors.black)),
+            child: const Text('موافق'),
           ),
         ],
       ),
@@ -586,32 +706,38 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 }
 
 // صفحة سجل الحضور
-class AttendanceScreen extends StatelessWidget {
+class AttendanceHistoryScreen extends StatelessWidget {
   final UserModel user;
   
-  const AttendanceScreen({super.key, required this.user});
+  const AttendanceHistoryScreen({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('سجل الحضور', style: TextStyle(color: Colors.white)),
+        title: Text(
+          'سجل الحضور', 
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             _buildTodayStatus(context),
             const SizedBox(height: 20),
-            const Align(
+            Align(
               alignment: Alignment.centerRight,
               child: Text(
                 'سجل الحضور:',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -668,16 +794,7 @@ class AttendanceScreen extends StatelessWidget {
                       builder: (_) => QRScannerScreen(user: user),
                     ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00FF57),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'تسجيل الحضور',
-                    style: TextStyle(color: Colors.black),
-                  ),
+                  child: const Text('تسجيل الحضور'),
                 ),
             ],
           ),
@@ -691,16 +808,18 @@ class AttendanceScreen extends StatelessWidget {
       stream: AttendanceService().getUserAttendance(user.uid),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF00FF57)),
+          return Center(
+            child: CircularProgressIndicator(
+              color: Theme.of(context).colorScheme.primary,
+            ),
           );
         }
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
+          return Center(
             child: Text(
               'لا يوجد سجل حضور',
-              style: TextStyle(color: Colors.white70),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           );
         }
@@ -710,29 +829,39 @@ class AttendanceScreen extends StatelessWidget {
           itemBuilder: (context, index) {
             final attendance = snapshot.data![index];
             return Card(
-              color: const Color(0xFF2C2C2E),
+              color: Theme.of(context).colorScheme.surface,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               margin: const EdgeInsets.symmetric(vertical: 6),
               child: ListTile(
-                leading: const Icon(Icons.check_circle, color: Color(0xFF00FF57), size: 28),
+                leading: Icon(
+                  Icons.check_circle, 
+                  color: Theme.of(context).colorScheme.primary, 
+                  size: 28,
+                ),
                 title: Text(
                   _formatDate(attendance.date),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 subtitle: Row(
                   children: [
-                    const Icon(Icons.access_time, color: Colors.white54, size: 18),
+                    Icon(
+                      Icons.access_time, 
+                      color: Theme.of(context).textTheme.bodySmall?.color, 
+                      size: 18,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       _formatTime(attendance.checkInTime),
-                      style: const TextStyle(color: Colors.white70),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
-                trailing: const Text(
+                trailing: Text(
                   'حضر',
                   style: TextStyle(
-                    color: Color(0xFF00FF57),
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -745,7 +874,6 @@ class AttendanceScreen extends StatelessWidget {
   }
 
   String _formatDate(DateTime date) {
-    // يمكنك تعديل التنسيق حسب الحاجة
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
